@@ -1,0 +1,12 @@
+FROM node:24-alpine
+
+WORKDIR /usr/app
+
+COPY package*.json ./
+RUN npm install --production
+
+COPY index.js .
+
+EXPOSE 4444
+
+CMD ["node", "index.js"]
