@@ -11,6 +11,7 @@ pipeline {
         DOCKER_APP  = "/home/laborant/sample-node-app"
 
         KUBE_API = "https://kubernetes:6443"
+        DOCKER_IMAGE = "yourdockerusername/sample-node-app:latest"
     }
 
     stages {
@@ -36,7 +37,6 @@ pipeline {
             }
         }
 
-
         stage('Deploy to Target VM') {
             steps {
                 withCredentials([sshUserPrivateKey(
@@ -44,54 +44,42 @@ pipeline {
                     keyFileVariable: 'SSH_KEY',
                     usernameVariable: 'SSH_USER'
                 )]) {
-                    sh '''
-                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@${TARGET_HOST} "
-                        rm -rf ${TARGET_DIR} &&
-                        git clone ${GIT_REPO} ${TARGET_DIR} &&
-                        cd ${TARGET_DIR} &&
-                        npm install &&
-                        nohup node index.js > app.log 2>&1 &
-                    "
-                    '''
-                }
-            }
-        }
-
-
-        stage('Deploy to Docker VM') {
-            steps {
-                withCredentials([
-                    sshUserPrivateKey(
-                        credentialsId: 'mykey',
-                        keyFileVariable: 'SSH_KEY',
-                        usernameVariable: 'SSH_USER'
-                    )
-                ]) {
                     sh """
-                        ssh -i \$SSH_KEY \
-                            -o IdentitiesOnly=yes \
-                            -o StrictHostKeyChecking=no \
-                            \$SSH_USER@docker '
-                            
-                            docker pull ${DOCKER_IMAGE}
-
-                            docker stop nodejs-app || true
-                            docker rm nodejs-app || true
-
-                            docker run -d \
-                                --name nodejs-app \
-                                -p 4444:4444 \
-                                ${DOCKER_IMAGE}
-
-                            sleep 3
-                            curl -f http://localhost:4444 && echo "Docker VM deployment successful!"
-                        '
+                    ssh -i "\$SSH_KEY" -o StrictHostKeyChecking=no \$SSH_USER@\$TARGET_HOST < /dev/null << 'ENDSSH'
+                        rm -rf ${TARGET_DIR}
+                        git clone ${GIT_REPO} ${TARGET_DIR}
+                        cd ${TARGET_DIR}
+                        npm install
+                        nohup node index.js > app.log 2>&1 < /dev/null &
+                    ENDSSH
                     """
                 }
             }
         }
 
+        stage('Deploy to Docker VM') {
+            steps {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'mykey',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
+                    sh """
+                    ssh -i "\$SSH_KEY" -o StrictHostKeyChecking=no \$SSH_USER@\$DOCKER_HOST < /dev/null << 'ENDSSH'
+                        docker pull ${DOCKER_IMAGE}
 
+                        docker stop nodejs-app || true
+                        docker rm nodejs-app || true
+
+                        docker run -d --name nodejs-app -p 4444:4444 ${DOCKER_IMAGE}
+
+                        sleep 3
+                        curl -f http://localhost:4444 && echo "Docker VM deployment successful!"
+                    ENDSSH
+                    """
+                }
+            }
+        }
 
         stage('Deploy to Kubernetes') {
             steps {
