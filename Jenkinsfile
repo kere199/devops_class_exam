@@ -8,6 +8,7 @@ pipeline {
         TARGET_DIR  = "/home/laborant/sample-node-app"
 
         DOCKER_HOST = "docker"
+        DOCKER_IMAGE = "ttl.sh/nodejs-app-exam:1h"  // added DOCKER_IMAGE
         DOCKER_APP  = "/home/laborant/sample-node-app"
 
         KUBE_API = "https://kubernetes:6443"
@@ -50,7 +51,7 @@ pipeline {
                         git clone ${GIT_REPO} ${TARGET_DIR} &&
                         cd ${TARGET_DIR} &&
                         npm install &&
-                        nohup node index.js > app.log 2>&1 &
+                        nohup node index.js > app.log 2>&1 < /dev/null &
                     "
                     '''
                 }
@@ -60,28 +61,19 @@ pipeline {
 
         stage('Deploy to Docker VM') {
             steps {
-                withCredentials([
-                    sshUserPrivateKey(
-                        credentialsId: 'mykey',
-                        keyFileVariable: 'SSH_KEY',
-                        usernameVariable: 'SSH_USER'
-                    )
-                ]) {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'mykey',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
                     sh """
-                        ssh -i \$SSH_KEY \
-                            -o IdentitiesOnly=yes \
-                            -o StrictHostKeyChecking=no \
-                            \$SSH_USER@docker '
-                            
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@\$DOCKER_HOST '
                             docker pull ${DOCKER_IMAGE}
 
                             docker stop nodejs-app || true
                             docker rm nodejs-app || true
 
-                            docker run -d \
-                                --name nodejs-app \
-                                -p 4444:4444 \
-                                ${DOCKER_IMAGE}
+                            docker run -d --name nodejs-app -p 4444:4444 ${DOCKER_IMAGE}
 
                             sleep 3
                             curl -f http://localhost:4444 && echo "Docker VM deployment successful!"
@@ -90,7 +82,6 @@ pipeline {
                 }
             }
         }
-
 
 
         stage('Deploy to Kubernetes') {
