@@ -37,16 +37,15 @@ pipeline {
                     keyFileVariable: 'SSH_KEY',
                     usernameVariable: 'SSH_USER'
                 )]) {
-                    sh """
-                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $SSH_USER@${TARGET_HOST} << 'EOF'
-                      set -e
-                      rm -rf ${APP_DIR}
-                      git clone ${GIT_REPO} ${APP_DIR}
-                      cd ${APP_DIR}
-                      npm install
-                      nohup node index.js > app.log 2>&1 &
-                    EOF
-                    """
+                    sh '''
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $SSH_USER@172.16.0.3 "
+                        rm -rf /home/laborant/sample-node-app &&
+                        git clone https://github.com/kere199/devops_class_exam.git /home/laborant/sample-node-app &&
+                        cd /home/laborant/sample-node-app &&
+                        npm install &&
+                        nohup node index.js > app.log 2>&1 &
+                    "
+                    '''
                 }
             }
         }
