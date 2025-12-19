@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sample-node-app
+  name: myapp
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sample-node-app
+      app: myapp
   template:
     metadata:
       labels:
-        app: sample-node-app
+        app: myapp
     spec:
       containers:
-        - name: app
-          image: sample-node-app:latest
+        - name: nodejs
+          image: ttl.sh/nodejs-app-exam:1h
           ports:
             - containerPort: 4444
