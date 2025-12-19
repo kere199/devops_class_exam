@@ -2,9 +2,15 @@ pipeline {
     agent any
 
     environment {
+        GIT_REPO = "https://github.com/kere199/devops_class_exam.git"
+
         TARGET_HOST = "172.16.0.3"
-        APP_DIR     = "/home/laborant/sample-node-app"
-        GIT_REPO    = "https://github.com/kere199/devops_class_exam.git"
+        TARGET_DIR  = "/home/laborant/sample-node-app"
+
+        DOCKER_HOST = "docker"
+        DOCKER_APP  = "/home/laborant/sample-node-app"
+
+        KUBE_API = "https://kubernetes:6443"
     }
 
     stages {
@@ -30,6 +36,7 @@ pipeline {
             }
         }
 
+
         stage('Deploy to Target VM') {
             steps {
                 withCredentials([sshUserPrivateKey(
@@ -38,35 +45,46 @@ pipeline {
                     usernameVariable: 'SSH_USER'
                 )]) {
                     sh '''
-                      ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@${TARGET_HOST} "
-                        rm -rf ${APP_DIR} &&
-                        git clone ${GIT_REPO} ${APP_DIR} &&
-                        cd ${APP_DIR} &&
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@${TARGET_HOST} "
+                        rm -rf ${TARGET_DIR} &&
+                        git clone ${GIT_REPO} ${TARGET_DIR} &&
+                        cd ${TARGET_DIR} &&
                         npm install &&
                         nohup node index.js > app.log 2>&1 &
-                      "
+                    "
                     '''
                 }
             }
         }
 
-        stage('Build Docker Image') {
-            when {
-                expression { sh(script: 'which docker', returnStatus: true) == 0 }
-            }
+
+        stage('Deploy to Docker VM') {
             steps {
-                sh 'docker build -t sample-node-app:latest .'
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'mykey',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
+                    sh '''
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@${DOCKER_HOST} "
+                        rm -rf ${DOCKER_APP} &&
+                        git clone ${GIT_REPO} ${DOCKER_APP} &&
+                        cd ${DOCKER_APP} &&
+                        docker build -t sample-node-app:latest . &&
+                        docker rm -f sample-node || true &&
+                        docker run -d -p 4444:4444 --name sample-node sample-node-app:latest
+                    "
+                    '''
+                }
             }
         }
 
+
         stage('Deploy to Kubernetes') {
-            when {
-                expression { sh(script: 'which kubectl', returnStatus: true) == 0 }
-            }
             steps {
                 withKubeConfig([
                     credentialsId: 'myapikey',
-                    serverUrl: 'https://kubernetes:6443'
+                    serverUrl: "${KUBE_API}"
                 ]) {
                     sh '''
                       kubectl apply -f k8s/deployment.yaml
