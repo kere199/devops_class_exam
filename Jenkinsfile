@@ -5,7 +5,6 @@ pipeline {
         TARGET_HOST  = "172.16.0.3"
         APP_DIR      = "/home/laborant/my-nodejs-app"
         SERVICE_NAME = "sample-node"
-        DOCKER_IMAGE = "sample-node-app:latest"
     }
 
     stages {
@@ -27,21 +26,28 @@ pipeline {
 
         stage('Unit Tests') {
             steps {
-                sh '''
-                node --test
-                '''
+                sh 'node --test'
             }
         }
 
         stage('Deploy to Target VM') {
             steps {
-                sshagent(credentials: ['mykey']) {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'mykey',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
                     sh '''
-                    ssh -o StrictHostKeyChecking=no laborant@${TARGET_HOST} << EOF
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $SSH_USER@${TARGET_HOST} << EOF
+                      mkdir -p ${APP_DIR}
                       cd ${APP_DIR}
-                      git pull
+                      if [ ! -d .git ]; then
+                        git clone https://github.com/kere199/devops_class_exam .
+                      else
+                        git pull
+                      fi
                       npm install
-                      sudo systemctl restart ${SERVICE_NAME}
+                      sudo systemctl restart ${SERVICE_NAME} || true
                     EOF
                     '''
                 }
@@ -50,9 +56,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                docker build -t ${DOCKER_IMAGE} .
-                '''
+                sh 'docker build -t sample-node-app:latest .'
             }
         }
 
