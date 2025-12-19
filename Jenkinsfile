@@ -18,8 +18,8 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                node -v
-                npm install
+                  node -v
+                  npm install
                 '''
             }
         }
@@ -38,13 +38,13 @@ pipeline {
                     usernameVariable: 'SSH_USER'
                 )]) {
                     sh '''
-                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $SSH_USER@172.16.0.3 "
-                        rm -rf /home/laborant/sample-node-app &&
-                        git clone https://github.com/kere199/devops_class_exam.git /home/laborant/sample-node-app &&
-                        cd /home/laborant/sample-node-app &&
+                      ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@${TARGET_HOST} "
+                        rm -rf ${APP_DIR} &&
+                        git clone ${GIT_REPO} ${APP_DIR} &&
+                        cd ${APP_DIR} &&
                         npm install &&
                         nohup node index.js > app.log 2>&1 &
-                    "
+                      "
                     '''
                 }
             }
@@ -64,10 +64,15 @@ pipeline {
                 expression { sh(script: 'which kubectl', returnStatus: true) == 0 }
             }
             steps {
-                sh '''
-                kubectl apply -f k8s/deployment.yaml
-                kubectl apply -f k8s/service.yaml
-                '''
+                withKubeConfig([
+                    credentialsId: 'myapikey',
+                    serverUrl: 'https://kubernetes:6443'
+                ]) {
+                    sh '''
+                      kubectl apply -f k8s/deployment.yaml
+                      kubectl apply -f k8s/service.yaml
+                    '''
+                }
             }
         }
     }
