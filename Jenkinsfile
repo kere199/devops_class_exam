@@ -8,7 +8,7 @@ pipeline {
         TARGET_DIR  = "/home/laborant/sample-node-app"
 
         DOCKER_HOST = "docker"
-        DOCKER_IMAGE = "ttl.sh/nodejs-app-exam:1h"  // added DOCKER_IMAGE
+        DOCKER_IMAGE = "ttl.sh/nodejs-app-exam:1h"
         DOCKER_APP  = "/home/laborant/sample-node-app"
 
         KUBE_API = "https://kubernetes:6443"
