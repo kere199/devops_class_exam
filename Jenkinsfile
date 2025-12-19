@@ -60,21 +60,33 @@ pipeline {
 
         stage('Deploy to Docker VM') {
             steps {
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'mykey',
-                    keyFileVariable: 'SSH_KEY',
-                    usernameVariable: 'SSH_USER'
-                )]) {
-                    sh '''
-                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@docker << 'EOF'
-                    rm -rf /home/laborant/sample-node-app
-                    git clone https://github.com/kere199/devops_class_exam.git /home/laborant/sample-node-app
-                    cd /home/laborant/sample-node-app
-                    docker build -t sample-node-app:latest .
-                    docker rm -f sample-node || true
-                    docker run -d -p 4444:4444 --name sample-node sample-node-app:latest
-                    EOF
-                    '''
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'mykey',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+                    sh """
+                        ssh -i \$SSH_KEY \
+                            -o IdentitiesOnly=yes \
+                            -o StrictHostKeyChecking=no \
+                            \$SSH_USER@docker '
+                            
+                            docker pull ${DOCKER_IMAGE}
+
+                            docker stop nodejs-app || true
+                            docker rm nodejs-app || true
+
+                            docker run -d \
+                                --name nodejs-app \
+                                -p 4444:4444 \
+                                ${DOCKER_IMAGE}
+
+                            sleep 3
+                            curl -f http://localhost:4444 && echo "Docker VM deployment successful!"
+                        '
+                    """
                 }
             }
         }
