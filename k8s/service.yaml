@@ -9,4 +9,5 @@ spec:
   ports:
     - port: 4444
       targetPort: 4444
-      nodePort: 30044
+      # Remove nodePort so Kubernetes picks a free one
+      # nodePort: 30044
