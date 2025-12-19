@@ -66,18 +66,19 @@ pipeline {
                     usernameVariable: 'SSH_USER'
                 )]) {
                     sh '''
-                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@${DOCKER_HOST} "
-                        rm -rf ${DOCKER_APP} &&
-                        git clone ${GIT_REPO} ${DOCKER_APP} &&
-                        cd ${DOCKER_APP} &&
-                        docker build -t sample-node-app:latest . &&
-                        docker rm -f sample-node || true &&
-                        docker run -d -p 4444:4444 --name sample-node sample-node-app:latest
-                    "
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ${SSH_USER}@docker << 'EOF'
+                    rm -rf /home/laborant/sample-node-app
+                    git clone https://github.com/kere199/devops_class_exam.git /home/laborant/sample-node-app
+                    cd /home/laborant/sample-node-app
+                    docker build -t sample-node-app:latest .
+                    docker rm -f sample-node || true
+                    docker run -d -p 4444:4444 --name sample-node sample-node-app:latest
+                    EOF
                     '''
                 }
             }
         }
+
 
 
         stage('Deploy to Kubernetes') {
